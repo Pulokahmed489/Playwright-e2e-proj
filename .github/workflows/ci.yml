@@ -2,37 +2,30 @@ name: Playwright CI Pipeline
 
 on:
   push:
-    branches: feature/*
+    branches:
+      - feature/*
 
 jobs:
-  smoke-tests:
-    name: Run Smoke Tests
+  playwright-tests:
     runs-on: ubuntu-latest
-    continue-on-error: true
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+    strategy:
+      matrix:
+        test-type:
+          - name: Smoke Tests
+            grep: '@smoke'
+            file: smoke-time.txt
+            continue-on-error: true
+          - name: Flaky Tests
+            grep: '@flaky'
+            file: flaky-time.txt
+            continue-on-error: true
+          - name: Regression Tests
+            grep: '@regression'
+            file: regression-time.txt
+            continue-on-error: false
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
-
-      - name: Run Smoke Tests
-        run: npx playwright test --grep @smoke
-
-  flaky-tests:
-    name: Run Flaky Tests
-    runs-on: ubuntu-latest
-    needs: smoke-tests
-    continue-on-error: true
+    continue-on-error: ${{ matrix.test-type.continue-on-error }}
 
     steps:
       - uses: actions/checkout@v4
@@ -42,25 +35,54 @@ jobs:
           node-version: 20
 
       - run: npm ci
+
       - run: npx playwright install --with-deps
 
-      - name: Run Flaky Tests
-        run: npx playwright test --grep @flaky
+      # Run tests and measure duration
+      - name: Run ${{ matrix.test-type.name }}
+        run: |
+          START_TIME=$(date +%s)
 
-  regression-tests:
-    name: Run All Regression Tests
-    runs-on: ubuntu-latest
-    needs: [smoke-tests, flaky-tests]
+          npx playwright test --grep ${{ matrix.test-type.grep }}
 
-    steps:
-      - uses: actions/checkout@v4
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
+          echo "DURATION=$DURATION" >> $GITHUB_ENV
+          echo "Current duration: ${DURATION}s"
 
-      - run: npm ci
-      - run: npx playwright install --with-deps
+      # Compare with baseline
+      - name: Calculate Improvement
+        run: |
+          FILE=${{ matrix.test-type.file }}
+          CURRENT=${{ env.DURATION }}
 
-      - name: Run Regression Tests
-        run: npx playwright test --grep @regression
+          if [ -f "$FILE" ]; then
+            BASELINE=$(cat $FILE)
+          else
+            BASELINE=$CURRENT
+          fi
+
+          IMPROVEMENT=$((BASELINE - CURRENT))
+
+          if [ $BASELINE -ne 0 ]; then
+            PERCENT=$(awk "BEGIN {printf \"%.2f\", ($IMPROVEMENT/$BASELINE)*100}")
+          else
+            PERCENT=0
+          fi
+
+          echo "### ${{ matrix.test-type.name }} Performance Report" >> $GITHUB_STEP_SUMMARY
+          echo "- Previous: ${BASELINE}s" >> $GITHUB_STEP_SUMMARY
+          echo "- Current: ${CURRENT}s" >> $GITHUB_STEP_SUMMARY
+          echo "- Improvement: ${IMPROVEMENT}s (${PERCENT}%)" >> $GITHUB_STEP_SUMMARY
+
+          # Save current duration as new baseline
+          echo $CURRENT > $FILE
+
+      - name: Commit updated performance data
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git add *.txt
+          git commit -m "Update test performance baseline" || echo "No changes to commit"
+          git push
