@@ -2,7 +2,7 @@
 node_modules/
 
 # Playwright output
-playwright-report/
+playwright-report/index.html
 test-results/
 blob-report/
 
