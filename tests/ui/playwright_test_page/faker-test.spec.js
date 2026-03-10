@@ -18,7 +18,7 @@ test.describe('faker test suite', (async) => {
   });
 
   // VS Test Data approach:
-  test('register with test data', async ({ page }) => {
+  test('register with test data ', async ({ page }) => {
     // TEST DATA: Hard-coded, always the same
     const user = {
       firstName: 'John', // Always John
