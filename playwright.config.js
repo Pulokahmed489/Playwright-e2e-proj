@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  timeout: 30000,
+  timeout: 10000,
   workers: 1,
   expect: {
     timeout: 5000,
@@ -12,7 +12,7 @@ export default defineConfig({
 
   use: {
     viewport: null,
-    headless: true,
+    headless: false,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     trace: 'on-first-retry',
@@ -33,6 +33,14 @@ export default defineConfig({
       use: {
         browserName: 'chromium',
         baseURL: 'https://the-internet.herokuapp.com',
+      },
+    },
+    {
+      name: 'Chromium-PlaywrightApp',
+      testMatch: '**/ui/playwright_test_page/**/*.spec.js',
+      use: {
+        browserName: 'chromium',
+        baseURL: 'https://robinhood.com/',
       },
     },
   ],
