@@ -28,7 +28,7 @@ jobs:
 #      - name: Run Smoke Tests
 #        run: npx playwright test --grep @smoke
         
-        - name: Run Playwright tests in headed mode
+      - name: Run Playwright tests in headed mode
         run: xvfb-run --auto-servernum npx playwright test --headed --grep @smoke
 
   flaky-tests:
